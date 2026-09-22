@@ -11,7 +11,6 @@ export function buildTxt2Img({
   seed = null,
   sampler = "euler",
   scheduler = "normal",
-  denoise = 1.0,
 } = {}) {
   const g = new WorkflowGraph();
   const ckpt = g.add("CheckpointLoaderSimple", { ckpt_name: checkpoint });
@@ -28,7 +27,7 @@ export function buildTxt2Img({
     cfg,
     sampler_name: sampler,
     scheduler,
-    denoise,
+    denoise: 1.0,
   });
   const decode = g.add("VAEDecode", { samples: [sample, 0], vae: [ckpt, 2] });
   g.add("SaveImage", { images: [decode, 0], filename_prefix: "orchestrator" });

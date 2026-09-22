@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   api:
-    image: 192.168.0.140:5000/comfy-orchestrator:latest
+    image: ${IMAGE_NAME:-comfy-orchestrator}:${IMAGE_TAG:-latest}
     command: ["node", "index.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -29,38 +29,12 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_DB: ${REDIS_DB}
       REDIS_QUEUE_KEY: ${REDIS_QUEUE_KEY}
-      AI_GATEWAY_URL: ${AI_GATEWAY_URL}
-      AI_GATEWAY_CHAT_PATH: ${AI_GATEWAY_CHAT_PATH}
-      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
-      AI_GATEWAY_TIMEOUT_MS: ${AI_GATEWAY_TIMEOUT_MS}
-      ALLOWED_CHECKPOINTS: ${ALLOWED_CHECKPOINTS}
-      BLOCKED_CHECKPOINTS: ${BLOCKED_CHECKPOINTS}
-      MODEL_ROUTING_GUIDE: ${MODEL_ROUTING_GUIDE}
-      DEFAULT_NEGATIVE_PROMPT: ${DEFAULT_NEGATIVE_PROMPT}
-      CHAT_DEFAULT_WIDTH: ${CHAT_DEFAULT_WIDTH}
-      CHAT_DEFAULT_HEIGHT: ${CHAT_DEFAULT_HEIGHT}
-      CHAT_DEFAULT_STEPS: ${CHAT_DEFAULT_STEPS}
-      CHAT_DEFAULT_CFG: ${CHAT_DEFAULT_CFG}
-      CHAT_DEFAULT_SAMPLER: ${CHAT_DEFAULT_SAMPLER}
-      CHAT_DEFAULT_SCHEDULER: ${CHAT_DEFAULT_SCHEDULER}
-      VARIANT_COUNT_DEFAULT: ${VARIANT_COUNT_DEFAULT}
-      VARIANT_COUNT_MAX: ${VARIANT_COUNT_MAX}
-      VARIANT_SEED_MODE: ${VARIANT_SEED_MODE}
-      VARIANT_SEED_STRIDE: ${VARIANT_SEED_STRIDE}
-      VARIANT_STEPS_JITTER: ${VARIANT_STEPS_JITTER}
-      VARIANT_CFG_JITTER: ${VARIANT_CFG_JITTER}
-      VARIANT_PROMPT_SUFFIXES: ${VARIANT_PROMPT_SUFFIXES}
-      VARIANT_SAMPLER_POOL: ${VARIANT_SAMPLER_POOL}
-      VARIANT_DENOISE_JITTER_ENABLED: ${VARIANT_DENOISE_JITTER_ENABLED}
-      VARIANT_DENOISE_MIN: ${VARIANT_DENOISE_MIN}
-      VARIANT_DENOISE_MAX: ${VARIANT_DENOISE_MAX}
     ports:
       - "${API_PORT:-3000}:3000"
     volumes:
-      - ${COMFY_MODELS_HOST_DIR:-/models}:/models:ro
+      - ${COMFY_MODELS_HOST_DIR}:/models:ro
     networks:
       - databases
-      - obs-network
     deploy:
       replicas: ${API_REPLICAS:-1}
       restart_policy:
@@ -69,7 +43,7 @@ services:
         order: start-first
 
   worker:
-    image: 192.168.0.140:5000/comfy-orchestrator-worker:latest
+    image: ${IMAGE_NAME:-comfy-orchestrator}:${IMAGE_TAG:-latest}
     command: ["node", "worker.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -93,7 +67,7 @@ services:
       REDIS_DB: ${REDIS_DB}
       REDIS_QUEUE_KEY: ${REDIS_QUEUE_KEY}
     volumes:
-      - ${COMFY_MODELS_HOST_DIR:-/models}:/models:ro
+      - ${COMFY_MODELS_HOST_DIR}:/models:ro
     networks:
       - databases
     deploy:
@@ -103,6 +77,4 @@ services:
 
 networks:
   databases:
-    external: true
-  obs-network:
     external: true

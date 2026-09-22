@@ -11,9 +11,6 @@ import { buildFaceHandFix } from "./lib/workflows/faceHandFix.js";
 import { describeImageLocally, refinePrompt } from "./lib/vision.js";
 import { checkRequirements, alert } from "./lib/precheck.js";
 import { jobsEnqueued, redisEnqueueFailures } from "./lib/metrics.js";
-import { craftPromptAndModel } from "./lib/chat-pipeline.js";
-import { resolveVariantCount, buildVariantParams } from "./lib/variants.js";
-import { gatewayConfigured } from "./lib/ai-gateway.js";
 
 startMetricsLoop();
 
@@ -48,7 +45,6 @@ const ENDPOINTS = {
   "POST /generate/face-hand-fix":  "[mode=detail-fix] body: {image_base64, filename, positive?, negative?, checkpoint?, callback_url?}",
   "POST /generate/batch":          "[mode=batch] body: {jobs: [ {mode, ...params}, ... ]} — fires each as its own durable job, returns all job ids",
   "POST /prompt/from-image":       "prompt-only, no generation: body: {image_base64, filename, extra_prompt?, llm?} -> returns crafted prompt text",
-  "POST /chat/generate":           "[mode=chat] body: {message, session_id?, external_ref?, title?, detected_niche?, variant_count?, callback_url?} — free-text chat message -> AI gateway crafts model+prompt -> N variant jobs enqueued. Replaces the old n8n chat webhook; no n8n involved.",
   "-- comfyui management --": "direct pass-through to the ComfyUI HTTP API",
   "GET /comfy/system-stats":  "GPU/VRAM/host stats",
   "GET /comfy/object-info":   "full node registry (what custom nodes are installed)",
@@ -265,92 +261,6 @@ app.post("/prompt/from-image", async (req, res) => {
     res.json({ success: true, description, prompt: finalPrompt });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
-  }
-});
-
-// ------------------------------------------------------------------------
-// Mode: chat -> image. Direct replacement for the old n8n "ComfyUI Chat
-// Webhook" flow. One AI-gateway call crafts {selected_model, positive_prompt,
-// negative_prompt, generation_params}; the graph itself is built locally
-// with buildTxt2Img (same builder every other endpoint uses) instead of
-// asking the LLM to author raw ComfyUI JSON, so it can't come back
-// malformed. variant_count/behavior is controlled entirely from .env
-// (see lib/variants.js) instead of being hardcoded in a workflow node.
-// Each variant becomes its own durable job through the normal
-// insertJob+enqueue pipeline — no separate HTTP hop to this same API, no
-// second n8n workflow relaying to /generate.
-// ------------------------------------------------------------------------
-app.post("/chat/generate", async (req, res) => {
-  try {
-    if (!gatewayConfigured()) {
-      return res.status(503).json({ success: false, error: "AI_GATEWAY_URL is not configured" });
-    }
-    const {
-      message, session_id, external_ref, title, detected_niche,
-      variant_count, callback_url,
-    } = req.body || {};
-    if (!message || !String(message).trim()) {
-      return res.status(400).json({ success: false, error: "message is required" });
-    }
-    const trimmedMessage = String(message).trim();
-    const sessionId = session_id || external_ref || `chat-${Date.now()}`;
-
-    const base = await craftPromptAndModel(trimmedMessage, { sessionId });
-    const total = resolveVariantCount(variant_count);
-
-    const jobs = [];
-    for (let i = 0; i < total; i++) {
-      const v = buildVariantParams(
-        {
-          positive_prompt: base.positive_prompt,
-          steps: base.generation_params.steps,
-          cfg: base.generation_params.cfg,
-        },
-        i
-      );
-      const built = buildTxt2Img({
-        checkpoint: base.selected_model,
-        positive: v.positive_prompt,
-        negative: base.negative_prompt,
-        width: base.generation_params.width,
-        height: base.generation_params.height,
-        steps: v.steps,
-        cfg: v.cfg,
-        seed: v.seed,
-        sampler: v.sampler || base.generation_params.sampler,
-        scheduler: base.generation_params.scheduler,
-        denoise: v.denoise,
-      });
-      const job = await enqueueGraph(built.graph, {
-        mode: `chat:txt2img:v${i + 1}of${total}`,
-        externalRef: external_ref || sessionId,
-        callbackUrl: callback_url,
-        promptText: v.positive_prompt,
-      });
-      jobs.push({
-        job_id: job.id,
-        status: job.status,
-        variant_index: i + 1,
-        variant_total: total,
-        seed: v.seed,
-        steps: v.steps,
-        cfg: v.cfg,
-      });
-    }
-
-    res.status(202).json({
-      success: true,
-      session_id: sessionId,
-      title: title || trimmedMessage.slice(0, 60),
-      detected_niche: detected_niche || null,
-      selected_model: base.selected_model,
-      base_prompt: base.positive_prompt,
-      variant_count: total,
-      jobs,
-    });
-  } catch (err) {
-    console.error("chat/generate error:", err.message);
-    res.status(502).json({ success: false, error: err.message });
   }
 });
 
