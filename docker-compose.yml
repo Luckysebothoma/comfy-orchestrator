@@ -57,7 +57,7 @@ services:
     ports:
       - "${API_PORT:-3000}:3000"
     volumes:
-      - ${COMFY_MODELS_HOST_DIR:-/models}:/models:ro
+      - ${COMFY_MODELS_HOST_DIR:-/models}:/models
     networks:
       - databases
       - obs-network
@@ -93,7 +93,7 @@ services:
       REDIS_DB: ${REDIS_DB}
       REDIS_QUEUE_KEY: ${REDIS_QUEUE_KEY}
     volumes:
-      - ${COMFY_MODELS_HOST_DIR:-/models}:/models:ro
+      - ${COMFY_MODELS_HOST_DIR:-/models}:/models
     networks:
       - databases
     deploy:
