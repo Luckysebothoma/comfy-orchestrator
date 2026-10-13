@@ -97,7 +97,7 @@ services:
     networks:
       - databases
     deploy:
-      replicas: ${WORKER_REPLICAS:-2}
+      replicas: ${WORKER_REPLICAS:-1}
       restart_policy:
         condition: on-failure
 
