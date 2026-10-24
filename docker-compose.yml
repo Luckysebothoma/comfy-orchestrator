@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   api:
-    image: 192.168.0.140:5000/comfy-orchestrator:latest
+    image: 192.168.0.140:5000/api/comfy-orchestrator:latest
     command: ["node", "index.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -69,7 +69,7 @@ services:
         order: start-first
 
   worker:
-    image: 192.168.0.140:5000/comfy-orchestrator-worker:latest
+    image: 192.168.0.140:5000/worker/comfy-orchestrator:latest
     command: ["node", "worker.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
